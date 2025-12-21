@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background-color: rgb(13 148 136);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: rgb(15 118 110);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-secondary {
+    background-color: rgb(229 231 235);
+    color: rgb(31 41 55);
+  }
+
+  .btn-secondary:hover {
+    background-color: rgb(209 213 219);
+  }
+
+  .btn-outline {
+    border: 2px solid rgb(13 148 136);
+    color: rgb(13 148 136);
+  }
+
+  .btn-outline:hover {
+    background-color: rgb(240 253 250);
+  }
+
+  .card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    padding: 1.5rem;
+    transition: all 0.2s;
+  }
+
+  .input {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgb(209 213 219);
+    border-radius: 0.5rem;
+  }
+
+  .input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(13 148 136);
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to right, rgb(13 148 136), rgb(147 51 234));
+  }
+
+  .glass {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
