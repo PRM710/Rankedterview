@@ -299,17 +299,20 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
             // Try to get local stream (may fail if device in use)
             const stream = await startLocalStream();
 
-            // Create peer connection (works even without local stream)
-            createPeerConnection(stream);
-
-            // Only caller creates offer
+            // Only caller creates peer connection and offer immediately
+            // Callee will create peer connection when they receive the offer
             if (roleRef.current === 'caller') {
+                // Create peer connection with tracks
+                createPeerConnection(stream);
+
                 console.log('Caller: creating offer in 1 second...');
                 setTimeout(() => {
                     createOffer();
                 }, 1000);
             } else {
-                console.log('Callee: waiting for offer...');
+                // Callee: just wait for offer, don't create peer connection yet
+                // The peer connection will be created in handleOffer
+                console.log('Callee: waiting for offer (peer connection will be created on offer)...');
             }
         } catch (error) {
             console.error('Error starting call:', error);
