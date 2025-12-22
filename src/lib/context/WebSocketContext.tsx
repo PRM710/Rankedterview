@@ -244,11 +244,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         if (socket && socket.readyState === WebSocket.OPEN) {
             try {
                 const message = { type, ...data };
+                console.log('WebSocket SEND:', type, message);
                 socket.send(JSON.stringify(message));
                 return true;
             } catch (e) {
                 console.error('WebSocket send error:', e);
             }
+        } else {
+            console.warn('WebSocket not ready for send:', type, socket?.readyState);
         }
 
         // Queue message if not connected
