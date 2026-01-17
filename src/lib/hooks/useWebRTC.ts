@@ -299,20 +299,38 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
             // Try to get local stream (may fail if device in use)
             const stream = await startLocalStream();
 
-            // Only caller creates peer connection and offer immediately
-            // Callee will create peer connection when they receive the offer
+            if (!stream) {
+                console.warn('No local stream available - proceeding in receive-only mode');
+                // Still allow connection for receiving remote stream
+            }
+
             if (roleRef.current === 'caller') {
-                // Create peer connection with tracks
+                // Caller creates peer connection and offer
                 createPeerConnection(stream);
 
-                console.log('Caller: creating offer in 1 second...');
-                setTimeout(() => {
+                // Retry sending offer multiple times to ensure callee receives it
+                const sendOfferWithRetry = (attempts: number) => {
+                    if (attempts <= 0) return;
+
+                    console.log(`Caller: creating offer (attempt ${4 - attempts + 1}/3)...`);
                     createOffer();
-                }, 1000);
+
+                    // Retry after delay if connection not established
+                    setTimeout(() => {
+                        if (peerConnection.current?.connectionState !== 'connected' &&
+                            peerConnection.current?.connectionState !== 'connecting') {
+                            console.log('Connection not established, retrying offer...');
+                            sendOfferWithRetry(attempts - 1);
+                        }
+                    }, 3000);
+                };
+
+                // Start offer after short delay for callee to be ready
+                setTimeout(() => sendOfferWithRetry(3), 1500);
             } else {
-                // Callee: just wait for offer, don't create peer connection yet
-                // The peer connection will be created in handleOffer
-                console.log('Callee: waiting for offer (peer connection will be created on offer)...');
+                // Callee: create peer connection immediately so it's ready for offers
+                createPeerConnection(stream);
+                console.log('Callee: peer connection created, waiting for offer...');
             }
         } catch (error) {
             console.error('Error starting call:', error);

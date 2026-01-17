@@ -32,13 +32,7 @@ export default function MatchmakingPage() {
         on('partner_accepted', (data: any) => {
             console.log('Partner accepted!', data);
             setPartnerAccepted(true);
-            // If we already accepted, go to room
-            if (matchState === 'accepted') {
-                setMatchState('ready');
-                setTimeout(() => {
-                    router.push(`/dashboard/interview/${matchData?.roomId}?role=callee`);
-                }, 1000);
-            }
+            // Don't redirect here - wait for both_ready which has correct role
         });
 
         on('both_ready', (data: any) => {
@@ -132,14 +126,8 @@ export default function MatchmakingPage() {
 
         sendAccept();
 
-        // If partner already accepted, we're the callee - go to room
-        if (partnerAccepted) {
-            setMatchState('ready');
-            setTimeout(() => {
-                router.push(`/dashboard/interview/${matchData.roomId}?role=callee`);
-            }, 1000);
-        }
-    }, [matchData, partnerAccepted, emit, router, connected]);
+        // Don't redirect here - wait for both_ready event with correct role
+    }, [matchData, emit, connected]);
 
     const declineMatch = async () => {
         setMatchState('idle');
