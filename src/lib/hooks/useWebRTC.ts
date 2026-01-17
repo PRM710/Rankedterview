@@ -53,6 +53,7 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
     const hasStartedRef = useRef(false);
     const roleRef = useRef(role);
     const userIdRef = useRef(userId);
+    const iceCandidateQueue = useRef<RTCIceCandidate[]>([]);
 
     // Update refs when props change
     useEffect(() => {
@@ -244,6 +245,9 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
             await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
             console.log('Remote description set, signaling state:', pc.signalingState);
 
+            // Process any ICE candidates that were queued before remote description was set
+            await processIceCandidateQueue();
+
             console.log('Creating answer...');
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -259,7 +263,8 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
             console.error('Error handling offer:', error.message || error);
             console.error('Error stack:', error.stack);
         }
-    }, [createPeerConnection, emit, roomId, userId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [createPeerConnection, emit, roomId]);
 
     // Handle incoming answer (for caller)
     const handleAnswer = useCallback(async (message: any) => {
@@ -295,20 +300,53 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
         }
     }, [userId]);
 
-    // Handle ICE candidate
+    // Process queued ICE candidates after remote description is set
+    const processIceCandidateQueue = useCallback(async () => {
+        const pc = peerConnection.current;
+        if (!pc || !pc.remoteDescription) return;
+
+        console.log(`Processing ${iceCandidateQueue.current.length} queued ICE candidates`);
+        while (iceCandidateQueue.current.length > 0) {
+            const candidate = iceCandidateQueue.current.shift();
+            if (candidate) {
+                try {
+                    await pc.addIceCandidate(candidate);
+                } catch (e) {
+                    console.error('Error adding queued ICE candidate:', e);
+                }
+            }
+        }
+    }, []);
+
+    // Handle ICE candidate - queue if remote description not set yet
     const handleIceCandidate = useCallback(async (message: any) => {
         try {
-            if (message.from === userId) return;
+            const currentUserId = userIdRef.current;
+            if (message.from === currentUserId) return;
 
             console.log('Received ICE candidate from', message.from);
             const pc = peerConnection.current;
-            if (pc && message.candidate) {
+
+            if (!pc) {
+                console.log('No peer connection yet, queueing ICE candidate');
+                iceCandidateQueue.current.push(new RTCIceCandidate(message.candidate));
+                return;
+            }
+
+            // Queue if remote description not set yet
+            if (!pc.remoteDescription) {
+                console.log('Remote description not set, queueing ICE candidate');
+                iceCandidateQueue.current.push(new RTCIceCandidate(message.candidate));
+                return;
+            }
+
+            if (message.candidate) {
                 await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
             }
         } catch (error) {
             console.error('Error handling ICE candidate:', error);
         }
-    }, [userId]);
+    }, []);
 
     // Start call
     const startCall = useCallback(async () => {

@@ -164,8 +164,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                     // Silent handlers
                     if (type === 'pong' || type === 'connected') return;
 
+                    // Log WebRTC messages for debugging
+                    if (type === 'webrtc_offer' || type === 'webrtc_answer' || type === 'ice_candidate') {
+                        console.log(`WebSocket RECV: ${type} from ${message.from}`, message);
+                    }
+
                     const handlers = handlersRef.current.get(type);
-                    if (handlers) {
+                    if (handlers && handlers.size > 0) {
                         handlers.forEach(handler => {
                             try {
                                 handler(message);
@@ -173,6 +178,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 console.error(`Handler error for ${type}:`, e);
                             }
                         });
+                    } else if (type === 'webrtc_offer' || type === 'webrtc_answer') {
+                        console.warn(`No handler registered for ${type}! Registered handlers:`,
+                            Array.from(handlersRef.current.keys()));
                     }
                 } catch (e) {
                     // Silent parse error
