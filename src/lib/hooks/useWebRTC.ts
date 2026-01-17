@@ -52,12 +52,18 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
     const localStreamRef = useRef<MediaStream | null>(null);
     const hasStartedRef = useRef(false);
     const roleRef = useRef(role);
+    const userIdRef = useRef(userId);
 
-    // Update roleRef when role changes
+    // Update refs when props change
     useEffect(() => {
         roleRef.current = role;
         console.log('Role updated:', role);
     }, [role]);
+
+    useEffect(() => {
+        userIdRef.current = userId;
+        console.log('UserId updated:', userId);
+    }, [userId]);
 
     // Initialize media devices
     const startLocalStream = useCallback(async () => {
@@ -197,27 +203,44 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
     // Handle incoming offer (for callee)
     const handleOffer = useCallback(async (message: any) => {
         try {
-            if (message.from === userId) {
-                console.log('Ignoring our own offer');
+            // Use current userId from ref to avoid stale closure
+            const currentUserId = userIdRef.current;
+
+            console.log('handleOffer called with message from:', message.from);
+            console.log('Current userId:', currentUserId, 'Role:', roleRef.current);
+
+            if (!currentUserId) {
+                console.error('No userId available, cannot handle offer');
                 return;
             }
 
-            console.log('Received offer from', message.from);
-            console.log('Our userId:', userId);
-            console.log('Our role:', roleRef.current);
+            if (message.from === currentUserId) {
+                console.log('Ignoring our own offer');
+                return;
+            }
 
             if (!message.sdp) {
                 console.error('No SDP in offer message!');
                 return;
             }
 
-            // Create peer connection if not exists
+            // Get or create peer connection
             let pc = peerConnection.current;
+
+            // If peer connection exists but is in wrong state, close and recreate
+            if (pc && (pc.signalingState === 'have-local-offer' || pc.signalingState === 'closed')) {
+                console.log('Peer connection in bad state:', pc.signalingState, '- recreating');
+                pc.close();
+                peerConnection.current = null;
+                pc = null;
+            }
+
             if (!pc) {
+                console.log('Creating new peer connection for offer handling');
                 pc = createPeerConnection(localStreamRef.current);
             }
 
-            console.log('Setting remote description (offer)...');
+            console.log('Setting remote description (offer), current state:', pc.signalingState);
             await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
             console.log('Remote description set, signaling state:', pc.signalingState);
 
@@ -226,13 +249,15 @@ export function useWebRTC(roomId: string, userId: string, role: 'caller' | 'call
             await pc.setLocalDescription(answer);
             console.log('Local description set (answer), signaling state:', pc.signalingState);
 
-            console.log('Sending answer to room:', roomId);
+            console.log('Sending webrtc_answer to room:', roomId);
             emit('webrtc_answer', {
                 to: roomId,
                 sdp: answer,
             });
-        } catch (error) {
-            console.error('Error handling offer:', error);
+            console.log('Answer sent successfully');
+        } catch (error: any) {
+            console.error('Error handling offer:', error.message || error);
+            console.error('Error stack:', error.stack);
         }
     }, [createPeerConnection, emit, roomId, userId]);
 
